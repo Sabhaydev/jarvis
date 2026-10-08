@@ -1,0 +1,8 @@
+SpeechRecognition
+sounddevice
+numpy
+pyttsx3
+psutil
+pyautogui
+pyperclip
+pillow

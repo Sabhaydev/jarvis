@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JARVIS Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050403; --panel: rgba(14, 10, 4, .82); --panel-solid: #120d05;
+    --gold: #f5b83d; --gold-2: #ffd77a; --gold-dim: #7a5718; --gold-line: rgba(245, 184, 61, .55);
+    --text: #f3e6c8; --muted: #a08a63; --red: #ff3b2f; --ok: #5fdc8f; --warn: #ffb547; --err: #ff5d55;
+    --you: rgba(10, 52, 66, .85); --you-line: #2aa7c4; --jarvis: rgba(48, 34, 12, .85);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    color: var(--text); font: 14px/1.45 "Segoe UI", system-ui, sans-serif; overflow: hidden;
+    background:
+      radial-gradient(ellipse 45% 60% at 50% 45%, rgba(255, 170, 40, .22), transparent 70%),
+      radial-gradient(ellipse at 50% 120%, rgba(255, 120, 0, .12), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(245,184,61,.035) 0 1px, transparent 1px 60px),
+      repeating-linear-gradient(0deg, rgba(245,184,61,.035) 0 1px, transparent 1px 60px),
+      var(--bg);
+  }
+  .hud { font-family: "Rajdhani", "Segoe UI", sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+  .app { display: grid; grid-template-rows: auto 1fr; height: 100vh; padding: 14px 18px; gap: 14px; }
+
+  /* ---------- header ---------- */
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; position: relative; z-index: 3; }
+  .logo { width: 62px; height: 62px; border-radius: 50%; flex: none; position: relative;
+          background: radial-gradient(circle, #fff3c4 0 12%, var(--gold) 24%, #7a4a05 52%, #1a1004 70%);
+          box-shadow: 0 0 22px rgba(245,184,61,.7), inset 0 0 12px #000; border: 2px solid var(--gold-dim); }
+  .logo::before, .logo::after { content: ""; position: absolute; border-radius: 50%; border: 1px dashed var(--gold-line); }
+  .logo::before { inset: -8px; animation: spin 12s linear infinite; }
+  .logo::after { inset: -15px; border-style: solid; border-color: rgba(245,184,61,.2) transparent; animation: spin 7s linear infinite reverse; }
+  .logo.thinking { animation: pulse .8s ease-in-out infinite; }
+  .logo.speaking { animation: pulse .35s ease-in-out infinite; }
+  .logo.hearing { box-shadow: 0 0 34px var(--gold); }
+  .logo.paused, .logo.starting { filter: grayscale(1) brightness(.5); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes pulse { 50% { transform: scale(1.08); } }
+  .title h1 { margin: 0; font: 700 30px "Rajdhani", sans-serif; letter-spacing: 9px; color: #fff4d6;
+              text-shadow: 0 0 14px rgba(245,184,61,.6); }
+  .title .status { color: var(--gold); font: 600 14px "Rajdhani", sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+  .chip, .hbtn { background: var(--panel); border: 1px solid var(--gold-line); border-radius: 8px; padding: 7px 12px;
+                 box-shadow: inset 0 0 14px rgba(245,184,61,.08); }
+  .chip small { display: block; color: var(--gold); font: 600 10px "Rajdhani", sans-serif; letter-spacing: 1.5px; text-transform: uppercase; }
+  .chip b { font-weight: 600; font-size: 13px; }
+  .hbtn { color: var(--text); font: 600 14px "Segoe UI", sans-serif; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+  .hbtn:hover, .btn:hover { border-color: var(--gold); box-shadow: 0 0 12px rgba(245,184,61,.35); }
+  .hbtn svg { width: 16px; height: 16px; fill: var(--gold); }
+
+  /* ---------- layout ---------- */
+  main { display: grid; grid-template-columns: minmax(330px, 1fr) minmax(300px, 1.05fr) minmax(380px, 1.15fr); gap: 18px; min-height: 0; }
+  .stage { position: relative; min-height: 0; }
+  .right { display: grid; grid-template-rows: 1fr 1.1fr auto; gap: 14px; min-height: 0; position: relative; z-index: 2; }
+  .panel { background: var(--panel); border: 1.5px solid var(--gold-line); border-radius: 12px; display: flex; flex-direction: column;
+           min-height: 0; position: relative; z-index: 2; backdrop-filter: blur(3px);
+           box-shadow: 0 0 18px rgba(245,184,61,.15), inset 0 0 24px rgba(245,184,61,.06); }
+  .panel::before, .panel::after { content: ""; position: absolute; width: 18px; height: 18px; border: 2px solid var(--gold); pointer-events: none; }
+  .panel::before { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-top-left-radius: 12px; }
+  .panel::after { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-bottom-right-radius: 12px; }
+  .panel h2 { margin: 0; padding: 11px 16px; font: 600 15px "Rajdhani", sans-serif; letter-spacing: 2.5px; text-transform: uppercase;
+              color: var(--gold-2); border-bottom: 1px solid rgba(245,184,61,.25); display: flex; align-items: center; gap: 10px; }
+  .panel h2 svg { width: 17px; height: 17px; fill: var(--gold); flex: none; }
+  .panel h2 .count { margin-left: auto; color: var(--text); font-size: 13px; }
+  .scroll { overflow-y: auto; padding: 12px 14px; flex: 1; min-height: 0; scrollbar-width: thin; scrollbar-color: var(--gold-dim) transparent; }
+  .empty { color: var(--muted); font-style: italic; }
+
+  /* ---------- chat ---------- */
+  .msg { display: flex; gap: 10px; margin-bottom: 12px; align-items: flex-start; }
+  .msg.user { flex-direction: row-reverse; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; overflow: hidden; }
+  .msg.jarvis .avatar { background: radial-gradient(circle, #3b2a0c, #120c03); border: 1.5px solid var(--gold); box-shadow: 0 0 10px rgba(245,184,61,.45); }
+  .msg.user .avatar { background: #0e3a4a; border: 1.5px solid var(--you-line); }
+  .avatar svg { width: 30px; height: 30px; }
+  .bubble { max-width: 78%; padding: 8px 13px 9px; border-radius: 12px; }
+  .msg.jarvis .bubble { background: var(--jarvis); border: 1px solid var(--gold-dim); border-top-left-radius: 3px; }
+  .msg.user .bubble { background: var(--you); border: 1px solid var(--you-line); border-top-right-radius: 3px; }
+  .bubble .meta { font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  .msg.user .bubble .meta { color: #8cc7d6; text-align: right; }
+  .asking { margin: 0 12px 0; padding: 8px 12px; border: 1px dashed var(--gold); border-radius: 8px; color: var(--gold-2);
+            background: rgba(245,184,61,.08); display: none; font-size: 13px; }
+  .asking.show { display: block; animation: glow 1.4s ease-in-out infinite; }
+  @keyframes glow { 50% { box-shadow: 0 0 14px rgba(245,184,61,.4); } }
+  .composer { display: flex; gap: 8px; padding: 10px 12px 12px; }
+  .composer input { flex: 1; min-width: 0; background: rgba(0,0,0,.55); border: 1px solid var(--gold-dim); color: var(--text);
+                    border-radius: 9px; padding: 10px 12px; font: inherit; outline: none; }
+  .composer input:focus { border-color: var(--gold); }
+  .btn { background: rgba(0,0,0,.5); border: 1px solid var(--gold-dim); border-radius: 9px; width: 44px; flex: none;
+         display: grid; place-items: center; cursor: pointer; }
+  .btn svg { width: 20px; height: 20px; fill: var(--gold); }
+  .btn.send { background: linear-gradient(180deg, #4d3409, #2a1c05); border-color: var(--gold); }
+  .btn.mic.on { background: var(--gold); } .btn.mic.on svg { fill: #1a1004; }
+
+  /* ---------- feeds ---------- */
+  .row { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(245,184,61,.12); align-items: center; }
+  .row:last-child { border-bottom: 0; }
+  .row time { color: var(--muted); font-size: 12px; flex: none; font-variant-numeric: tabular-nums; width: 78px; }
+  .row .body { flex: 1; min-width: 0; word-break: break-word; }
+  .tag { font: 600 11px "Rajdhani", sans-serif; letter-spacing: 1px; padding: 2px 8px; border-radius: 4px; text-transform: uppercase; flex: none;
+         border: 1px solid; min-width: 86px; text-align: center; }
+  .tag.cmd { color: var(--gold-2); border-color: var(--gold-dim); background: rgba(245,184,61,.12); }
+  .tag.ign { color: var(--muted); border-color: #3a2f1c; }
+  .tag.run, .tag.warn { color: var(--warn); border-color: #6b4a12; background: rgba(255,181,71,.08); }
+  .tag.done { color: var(--ok); border-color: #1f5e3a; background: rgba(95,220,143,.08); }
+  .tag.error { color: var(--err); border-color: #6e2320; background: rgba(255,93,85,.08); }
+  .tag.info, .tag.intent { color: #6fd3f0; border-color: #1c5468; background: rgba(42,167,196,.08); }
+  .engine { color: var(--muted); font-size: 11px; }
+  .result { color: var(--muted); font-size: 12px; display: block; }
+  code { color: var(--gold-2); font-family: Consolas, monospace; font-size: 12px; opacity: .8; }
+  .wave { display: flex; gap: 2px; align-items: center; height: 18px; flex: none; }
+  .wave i { width: 2px; background: var(--gold); border-radius: 1px; height: 30%; opacity: .7; }
+  .row.live .wave i { animation: eq .9s ease-in-out infinite; }
+  .wave i:nth-child(2n) { animation-delay: -.3s !important; } .wave i:nth-child(3n) { animation-delay: -.6s !important; }
+  @keyframes eq { 0%, 100% { height: 25%; } 50% { height: 100%; } }
+
+  /* ---------- system ---------- */
+  .stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; padding: 10px 6px; }
+  .stat { padding: 2px 10px; border-right: 1px solid rgba(245,184,61,.15); display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; }
+  .stat:last-child { border-right: 0; }
+  .stat > svg.ic { width: 24px; height: 24px; fill: none; stroke: var(--gold); stroke-width: 1.6; grid-row: span 2; }
+  .stat small { font: 600 11px "Rajdhani", sans-serif; letter-spacing: 1px; color: var(--text); text-transform: uppercase; }
+  .stat b { font: 700 20px "Rajdhani", sans-serif; font-variant-numeric: tabular-nums; }
+  .stat .net { font-size: 12px; line-height: 1.25; }
+  .stat .viz { grid-column: 1 / -1; height: 22px; margin-top: 4px; }
+  .bar { height: 6px; background: rgba(245,184,61,.15); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+  .bar i { display: block; height: 100%; background: linear-gradient(90deg, #b07a17, var(--gold-2)); width: 0; transition: width .6s; }
+  svg.spark { width: 100%; height: 22px; }
+  svg.spark polyline { fill: none; stroke: var(--gold); stroke-width: 1.4; }
+
+  /* ---------- robot ---------- */
+  .robot { position: absolute; left: 50%; top: 50%; width: min(100%, 470px); aspect-ratio: 400 / 600; z-index: 4;
+           transform: translate(calc(-50% + var(--x, 0px)), calc(-50% + var(--y, 0px))); cursor: grab; touch-action: none; user-select: none; }
+  .robot.dragging { cursor: grabbing; }
+  .robot.dragging svg { filter: drop-shadow(0 0 30px rgba(255,190,70,.75)); }
+  .robot svg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 0 18px rgba(255,170,40,.45)); transition: filter .3s; }
+  .robot .hint { position: absolute; bottom: -4px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 11px; opacity: 0; transition: opacity .3s; }
+  .robot:hover .hint { opacity: 1; }
+  #body { animation: hover 5s ease-in-out infinite; transform-origin: 200px 300px; }
+  @keyframes hover { 50% { transform: translateY(-9px); } }
+  #head { transform-origin: 200px 175px; transition: transform .25s ease-out; }
+  .eye { fill: var(--red); filter: url(#redglow); animation: eyes 3.5s ease-in-out infinite; }
+  @keyframes eyes { 50% { opacity: .65; } 52% { opacity: .1; } 54% { opacity: .9; } }
+  .speaking .eye { animation: talk .25s ease-in-out infinite; }
+  @keyframes talk { 50% { opacity: .45; } }
+  #core { animation: core 2.4s ease-in-out infinite; transform-origin: 200px 268px; }
+  @keyframes core { 50% { opacity: .55; transform: scale(.88); } }
+  .speaking #core { animation-duration: .35s; }
+  .rings { transform-origin: 200px 120px; animation: spin 30s linear infinite; }
+  .rings.r2 { animation-duration: 18s; animation-direction: reverse; }
+  .thinking .rings { animation-duration: 2.5s; } .thinking .rings.r2 { animation-duration: 1.6s; }
+  #globe .lon { animation: lon 6s linear infinite; }
+  #globe .lon:nth-child(2) { animation-delay: -2s; } #globe .lon:nth-child(3) { animation-delay: -4s; }
+  @keyframes lon { 0% { rx: 0; } 25% { rx: 46px; } 50% { rx: 0; } 75% { rx: 46px; } 100% { rx: 0; } }
+  .thinking #globe .lon { animation-duration: 1.5s; }
+  #globe { filter: url(#goldglow); }
+  .holo { animation: bob 4s ease-in-out infinite; }
+  .holo.h2 { animation-delay: -2s; }
+  @keyframes bob { 50% { transform: translateY(-7px); } }
+  .hearing .rings circle, .listening .rings circle { stroke: #ffd77a; }
+
+  /* ---------- confirm ---------- */
+  .modal { position: fixed; inset: 0; background: rgba(0,0,0,.65); display: none; align-items: center; justify-content: center; padding: 16px; z-index: 20; }
+  .modal.show { display: flex; }
+  .modal .box { background: var(--panel-solid); border: 1.5px solid var(--gold); border-radius: 14px; padding: 20px 22px; width: 100%; max-width: 520px;
+                box-shadow: 0 0 40px rgba(245,184,61,.35); }
+  .modal h3 { margin: 0 0 4px; font: 700 18px "Rajdhani", sans-serif; letter-spacing: 2px; color: var(--gold-2); text-transform: uppercase; }
+  .modal .q { margin: 0 0 12px; color: var(--text); }
+  .preview { border: 1px solid var(--gold-dim); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; background: rgba(0,0,0,.35); display: none; }
+  .preview.show { display: block; }
+  .preview div { display: grid; grid-template-columns: 80px 1fr; gap: 8px; padding: 3px 0; }
+  .preview span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; padding-top: 2px; }
+  .preview p { margin: 0; white-space: pre-wrap; word-break: break-word; }
+  .modal .hint { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .modal .actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal button { padding: 9px 18px; border-radius: 8px; font: 600 14px "Segoe UI", sans-serif; cursor: pointer; border: 1px solid var(--gold-dim); background: transparent; color: var(--text); }
+  .modal button.yes { background: linear-gradient(180deg, #f5b83d, #b07a17); color: #1a1004; border-color: var(--gold); }
+
+  /* ---------- small screens ---------- */
+  @media (max-width: 1150px) {
+    body { overflow: auto; }
+    .app { height: auto; min-height: 100vh; padding: 12px 16px; }
+    main { grid-template-columns: 1fr; }
+    .stage { height: 420px; order: -1; }
+    .robot { width: min(80%, 300px); }
+    .panel { min-height: 340px; }
+    .right { grid-template-rows: none; }
+    .chips { margin-left: 0; }
+    .stats { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); row-gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <symbol id="i-jarvis" viewBox="0 0 40 40">
+      <path d="M20 4 L31 9 L34 19 L31 29 L25 35 L15 35 L9 29 L6 19 L9 9 Z" fill="#c8901f" stroke="#ffd77a" stroke-width="1"/>
+      <path d="M20 10 L27 13 L28 20 L25 28 L15 28 L12 20 L13 13 Z" fill="#5a3b0a"/>
+      <path d="M13 18 L18.5 19.5 L18 21 L13.5 20 Z M27 18 L21.5 19.5 L22 21 L26.5 20 Z" fill="#ff3b2f"/>
+    </symbol>
+    <symbol id="i-user" viewBox="0 0 40 40"><circle cx="20" cy="15" r="7" fill="#2aa7c4"/><path d="M7 35 C9 25 31 25 33 35 Z" fill="#2aa7c4"/></symbol>
+  </defs>
+</svg>
+
+<div class="app">
+  <header>
+    <div class="logo starting" id="logo"></div>
+    <div class="title">
+      <h1>J.A.R.V.I.S.</h1>
+      <div class="status" id="status">connecting…</div>
+    </div>
+    <div class="chips">
+      <div class="chip"><small>Brain</small><b id="brain">-</b></div>
+      <div class="chip"><small>Speech to text</small><b id="stt">-</b></div>
+      <div class="chip"><small>Voice</small><b id="tts">-</b></div>
+      <button class="hbtn" id="wakeBtn" onclick="post('/api/control', {action: 'toggle_wake'})" title="When off, everything you say is treated as a command">
+        <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12Z"/></svg>
+        <span>Wake word: on</span></button>
+      <button class="hbtn" id="pauseBtn" onclick="togglePause()">
+        <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1a7 7 0 0 0 6-6.9Z"/></svg>
+        <span>Pause mic</span></button>
+      <button class="hbtn" onclick="post('/api/control', {action: 'stop_speaking'})">
+        <svg viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>Stop talking</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- conversation -->
+    <section class="panel">
+      <h2><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="#f5b83d" stroke-width="2.4"/></svg>Conversation<span class="count" id="chatCount"></span></h2>
+      <div class="scroll" id="chat"><div class="empty">Say "Jarvis" followed by a command, press the mic button, or type below.</div></div>
+      <div class="asking" id="asking"></div>
+      <form class="composer" onsubmit="send(event)">
+        <button type="button" class="btn mic" id="micBtn" title="Talk now (no wake word needed)" onclick="talkNow()">
+          <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1a7 7 0 0 0 6-6.9Z"/></svg>
+        </button>
+        <input id="input" placeholder="Type a command… e.g. open chrome, weather in Mumbai, play lofi on YouTube" autocomplete="off">
+        <button class="btn send" title="Send"><svg viewBox="0 0 24 24"><path d="M3 20.5 21 12 3 3.5l2.5 7L15 12l-9.5 1.5Z"/></svg></button>
+      </form>
+    </section>
+
+    <!-- robot -->
+    <section class="stage" id="stage">
+      <div class="robot" id="robot" title="Drag me around · double-click to reset">
+        <svg viewBox="0 0 400 600" id="robotSvg">
+          <defs>
+            <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#fff0b8"/><stop offset=".35" stop-color="#f2b13a"/>
+              <stop offset=".7" stop-color="#9a6410"/><stop offset="1" stop-color="#4a2e06"/>
+            </linearGradient>
+            <linearGradient id="goldV" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#ffe39a"/><stop offset=".5" stop-color="#d9962a"/><stop offset="1" stop-color="#5a3807"/>
+            </linearGradient>
+            <linearGradient id="dark" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#6b4710"/><stop offset="1" stop-color="#1e1304"/>
+            </linearGradient>
+            <radialGradient id="coreG"><stop offset="0" stop-color="#fff"/><stop offset=".3" stop-color="#ff7a3a"/><stop offset=".7" stop-color="#d81e10"/><stop offset="1" stop-color="#d81e1000"/></radialGradient>
+            <radialGradient id="globeG"><stop offset="0" stop-color="#ffe7a8" stop-opacity=".55"/><stop offset=".7" stop-color="#f5b83d" stop-opacity=".18"/><stop offset="1" stop-color="#f5b83d" stop-opacity="0"/></radialGradient>
+            <filter id="redglow" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+            <filter id="goldglow" x="-.5" y="-.5" width="2" height="2"><feGaussianBlur stdDeviation="2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+
+          <!-- holo rings behind the head -->
+          <g class="rings"><circle cx="200" cy="120" r="118" fill="none" stroke="#f5b83d" stroke-opacity=".45" stroke-width="1.5" stroke-dasharray="4 10 40 10"/></g>
+          <g class="rings r2"><circle cx="200" cy="120" r="140" fill="none" stroke="#f5b83d" stroke-opacity=".25" stroke-width="1" stroke-dasharray="80 20 6 20"/></g>
+
+          <!-- floating holo panels -->
+          <g class="holo" opacity=".75">
+            <rect x="8" y="300" width="62" height="44" rx="3" fill="rgba(245,184,61,.08)" stroke="#f5b83d" stroke-width=".8"/>
+            <path d="M15 312h40M15 320h30M15 328h44M15 336h22" stroke="#f5b83d" stroke-width="1.5" opacity=".7"/>
+          </g>
+          <g class="holo h2" opacity=".75">
+            <rect x="330" y="285" width="62" height="54" rx="3" fill="rgba(245,184,61,.08)" stroke="#f5b83d" stroke-width=".8"/>
+            <polyline points="336,330 346,318 356,324 366,306 376,314 386,300" fill="none" stroke="#f5b83d" stroke-width="1.5"/>
+            <circle cx="345" cy="298" r="6" fill="none" stroke="#f5b83d"/>
+          </g>
+
+          <g id="body">
+            <!-- torso -->
+            <path d="M118 218 Q200 196 282 218 L304 262 L276 372 L200 404 L124 372 L96 262 Z" fill="url(#gold)" stroke="#3a2504" stroke-width="2"/>
+            <path d="M200 214 L200 402" stroke="#3a2504" stroke-width="2" opacity=".6"/>
+            <path d="M130 232 Q165 222 192 236 L188 292 Q150 300 122 280 Z" fill="url(#goldV)" stroke="#3a2504" stroke-width="1.5"/>
+            <path d="M270 232 Q235 222 208 236 L212 292 Q250 300 278 280 Z" fill="url(#goldV)" stroke="#3a2504" stroke-width="1.5"/>
+            <g fill="url(#dark)" stroke="#f2b13a" stroke-width=".8" opacity=".95">
+              <rect x="170" y="304" width="26" height="16" rx="3"/><rect x="204" y="304" width="26" height="16" rx="3"/>
+              <rect x="172" y="324" width="24" height="15" rx="3"/><rect x="204" y="324" width="24" height="15" rx="3"/>
+              <rect x="175" y="343" width="21" height="14" rx="3"/><rect x="204" y="343" width="21" height="14" rx="3"/>
+            </g>
+            <path d="M140 300 L160 360 M260 300 L240 360" stroke="#ff3b2f" stroke-width="1.6" opacity=".7" filter="url(#redglow)"/>
+            <!-- chest core -->
+            <circle cx="200" cy="268" r="20" fill="#2a1804" stroke="#ffd77a" stroke-width="2"/>
+            <circle id="core" cx="200" cy="268" r="15" fill="url(#coreG)"/>
+
+            <!-- shoulders -->
+            <path d="M70 248 Q78 206 130 206 L140 226 Q104 232 96 270 Z" fill="url(#gold)" stroke="#3a2504" stroke-width="2"/>
+            <path d="M330 248 Q322 206 270 206 L260 226 Q296 232 304 270 Z" fill="url(#gold)" stroke="#3a2504" stroke-width="2"/>
+            <!-- arms reaching to the globe -->
+            <path d="M84 262 L74 360 L150 448" fill="none" stroke="#3a2504" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M84 262 L74 360 L150 448" fill="none" stroke="url(#goldV)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M316 262 L326 360 L250 448" fill="none" stroke="#3a2504" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M316 262 L326 360 L250 448" fill="none" stroke="url(#goldV)" stroke-width="25" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M80 300 L76 340 M104 392 L130 422 M320 300 L324 340 M296 392 L270 422" stroke="#3a2504" stroke-width="3"/>
+            <circle cx="74" cy="360" r="9" fill="url(#dark)" stroke="#ffd77a"/><circle cx="326" cy="360" r="9" fill="url(#dark)" stroke="#ffd77a"/>
+
+            <!-- hologram globe -->
+            <g id="globe">
+              <circle cx="200" cy="452" r="66" fill="url(#globeG)"/>
+              <circle cx="200" cy="452" r="48" fill="rgba(245,184,61,.06)" stroke="#ffd77a" stroke-width="1.6"/>
+              <g fill="none" stroke="#f5b83d" stroke-width="1" opacity=".85">
+                <ellipse cx="200" cy="452" rx="48" ry="16"/><ellipse cx="200" cy="436" rx="44" ry="11" opacity=".7"/><ellipse cx="200" cy="468" rx="44" ry="11" opacity=".7"/>
+              </g>
+              <g fill="none" stroke="#ffd77a" stroke-width="1">
+                <ellipse class="lon" cx="200" cy="452" rx="20" ry="48"/><ellipse class="lon" cx="200" cy="452" rx="20" ry="48"/><ellipse class="lon" cx="200" cy="452" rx="20" ry="48"/>
+              </g>
+              <path d="M178 432 q8 -6 16 0 q6 8 -2 14 q-10 4 -14 -4 Z M210 450 q10 -4 16 4 q2 10 -8 14 q-10 0 -8 -18 Z M186 466 q6 2 6 8 q-6 4 -10 -2 Z" fill="#f5b83d" opacity=".55"/>
+              <ellipse cx="200" cy="452" rx="74" ry="14" fill="none" stroke="#f5b83d" stroke-width=".8" stroke-dasharray="3 6" opacity=".8"/>
+            </g>
+            <!-- hands -->
+            <path d="M140 440 Q150 470 172 474 L176 462 Q160 456 156 438 Z" fill="url(#gold)" stroke="#3a2504" stroke-width="1.5"/>
+            <path d="M260 440 Q250 470 228 474 L224 462 Q240 456 244 438 Z" fill="url(#gold)" stroke="#3a2504" stroke-width="1.5"/>
+
+            <!-- neck -->
+            <rect x="180" y="168" width="40" height="40" rx="6" fill="url(#dark)" stroke="#f2b13a" stroke-width="1"/>
+            <path d="M182 178h36M182 188h36M182 198h36" stroke="#f2b13a" stroke-width="1" opacity=".6"/>
+
+            <!-- head -->
+            <g id="head">
+              <path d="M200 30 L250 50 L266 98 L259 140 L238 168 L214 182 L186 182 L162 168 L141 140 L134 98 L150 50 Z" fill="url(#gold)" stroke="#3a2504" stroke-width="2.5"/>
+              <path d="M200 30 L200 64 M150 50 L172 80 M250 50 L228 80" stroke="#3a2504" stroke-width="1.6" opacity=".7"/>
+              <path d="M200 66 L234 80 L242 110 L230 150 L212 166 L188 166 L170 150 L158 110 L166 80 Z" fill="url(#dark)" stroke="#ffd77a" stroke-width="1"/>
+              <path d="M166 98 L196 106 M234 98 L204 106" stroke="#ffd77a" stroke-width="2.2"/>
+              <polygon class="eye" points="168,108 194,114 192,122 170,118"/>
+              <polygon class="eye" points="232,108 206,114 208,122 230,118"/>
+              <path d="M200 120 L196 138 L204 138 Z" fill="#c8901f" opacity=".8"/>
+              <g stroke="#f2b13a" stroke-width="1.6" opacity=".85"><path d="M186 146h28M188 152h24M190 158h20"/></g>
+              <path d="M141 140 L160 132 M259 140 L240 132 M146 112 L158 116 M254 112 L242 116" stroke="#3a2504" stroke-width="1.6"/>
+            </g>
+          </g>
+        </svg>
+        <div class="hint">drag me · double-click to reset</div>
+      </div>
+    </section>
+
+    <!-- right column -->
+    <div class="right">
+      <section class="panel">
+        <h2><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.9V22h2v-3.1a7 7 0 0 0 6-6.9Z"/></svg>Speech to text (live)</h2>
+        <div class="scroll" id="heard"><div class="empty">Everything the microphone hears appears here.</div></div>
+      </section>
+      <section class="panel">
+        <h2><svg viewBox="0 0 24 24"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.4-2.5 1a7.7 7.7 0 0 0-1.7-1L15 3.3h-4l-.4 2.7a7.7 7.7 0 0 0-1.7 1l-2.5-1-2 3.4L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.4 2.5-1a7.7 7.7 0 0 0 1.7 1l.4 2.7h4l.4-2.7a7.7 7.7 0 0 0 1.7-1l2.5 1 2-3.4ZM13 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Z" transform="translate(-1 0)"/></svg>Activity: what Jarvis is doing</h2>
+        <div class="scroll" id="activity"><div class="empty">Commands, tools and messages appear here.</div></div>
+      </section>
+      <section class="panel">
+        <h2><svg viewBox="0 0 24 24"><path d="M3 4h18v12H3zM8 20h8v-2H8z"/></svg>System</h2>
+        <div class="stats">
+          <div class="stat"><svg class="ic" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></svg>
+            <small>CPU</small><b id="cpu">-</b><svg class="spark viz" viewBox="0 0 100 22" preserveAspectRatio="none"><polyline id="cpuSpark"/></svg></div>
+          <div class="stat"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="10" rx="1"/><path d="M6 10v4M10 10v4M14 10v4M18 10v4"/></svg>
+            <small>RAM</small><b id="ram">-</b><div class="bar viz"><i id="ramBar"></i></div></div>
+          <div class="stat"><svg class="ic" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M8 17h8"/></svg>
+            <small>Disk (C:)</small><b id="disk">-</b><div class="bar viz"><i id="diskBar"></i></div></div>
+          <div class="stat"><svg class="ic" viewBox="0 0 24 24"><path d="M2 9a15 15 0 0 1 20 0M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0"/><circle cx="12" cy="19" r="1"/></svg>
+            <small>Internet</small><div class="net"><span id="down">↓ -</span><br><span id="up">↑ -</span></div>
+            <svg class="spark viz" viewBox="0 0 100 22" preserveAspectRatio="none"><polyline id="netSpark"/></svg></div>
+          <div class="stat"><svg class="ic" viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="10" rx="2"/><path d="M22 10v4"/><path d="M11 8l-3 4h4l-3 4" /></svg>
+            <small>Battery</small><b id="bat">-</b><div class="bar viz"><i id="batBar"></i></div></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <h3 id="modalTitle">Confirm</h3>
+    <p class="q" id="question"></p>
+    <div class="preview" id="preview"></div>
+    <div class="hint">Say "yes" or "no", type it, or click below. Nothing is sent or dialled without your yes.</div>
+    <div class="actions">
+      <button onclick="answer(false)" id="noBtn">No</button>
+      <button class="yes" onclick="answer(true)" id="yesBtn">Yes</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const STATUS_TEXT = { starting: "starting up", idle: "standing by", listening: "listening", hearing: "hearing you…",
+                      thinking: "working on it", speaking: "speaking", paused: "microphone paused" };
+const TOOL_NAMES = { open_application: "Open app", close_application: "Close app", list_running_apps: "List windows",
+  open_website: "Open website", google_search: "Google search", play_on_youtube: "YouTube", volume: "Volume",
+  media_control: "Media", set_brightness: "Brightness", system_status: "System status", get_datetime: "Clock",
+  take_screenshot: "Screenshot", type_text: "Type text", press_keys: "Keyboard", clipboard: "Clipboard",
+  set_reminder: "Reminder", lock_screen: "Lock", power: "Power", run_powershell: "PowerShell", list_files: "List files",
+  open_file: "Open file", take_note: "Note", weather: "Weather", wikipedia: "Wikipedia",
+  whatsapp_message: "WhatsApp message", telegram_message: "Telegram message", email_message: "Email",
+  whatsapp_call: "WhatsApp call", phone_call: "Phone call", teams_call: "Teams call", call_control: "Call control" };
+let paused = false, chatCount = 0, lastHeard = null;
+const toolRows = {};
+
+const fmt = t => new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const WAVE = '<span class="wave">' + "<i></i>".repeat(8) + "</span>";
+
+function add(boxId, html, cls = "row") {
+  const box = $(boxId);
+  box.querySelector(".empty")?.remove();
+  const stick = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  const el = document.createElement("div");
+  el.className = cls;
+  el.innerHTML = html;
+  box.appendChild(el);
+  while (box.children.length > 300) box.firstChild.remove();
+  if (stick) box.scrollTop = box.scrollHeight;
+  return el;
+}
+
+const handlers = {
+  state(e) {
+    $("logo").className = "logo " + e.status;
+    $("stage").className = "stage " + e.status;
+    $("status").textContent = (STATUS_TEXT[e.status] || e.status) + (e.awake && e.status === "listening" ? " · no wake word needed" : "");
+    $("brain").textContent = e.brain; $("stt").textContent = e.stt; $("tts").textContent = e.tts;
+    paused = e.status === "paused";
+    $("pauseBtn").querySelector("span").textContent = paused ? "Resume mic" : "Pause mic";
+    $("micBtn").classList.toggle("on", e.awake && e.status === "listening");
+    if (e.wake_word !== undefined) $("wakeBtn").querySelector("span").textContent = "Wake word: " + (e.wake_word ? "on" : "off");
+    if (e.status !== "hearing") lastHeard?.classList.remove("live");
+  },
+  chat(e) {
+    const who = e.role === "user" ? "You" + (e.source === "typed" ? " · typed" : e.source === "answer" ? " · reply" : "") : "JARVIS";
+    const icon = e.role === "user" ? "i-user" : "i-jarvis";
+    add("chat", `<div class="avatar"><svg><use href="#${icon}"/></svg></div>
+      <div class="bubble"><div class="meta">${who} · ${fmt(e.t)}</div>${esc(e.text)}</div>`, "msg " + e.role);
+    $("chatCount").textContent = ++chatCount + " messages";
+  },
+  heard(e) {
+    lastHeard?.classList.remove("live");
+    const tag = e.wake ? '<span class="tag cmd">command</span>' : '<span class="tag ign">ignored</span>';
+    lastHeard = add("heard", `<time>${fmt(e.t)}</time>${tag}<span class="body">${esc(e.text)} <span class="engine">via ${esc(e.engine || "?")}</span></span>${WAVE}`, "row live");
+    setTimeout(() => lastHeard?.classList.remove("live"), 2500);
+  },
+  intent(e) {
+    const what = e.intent === "fallback" ? "no matching command" : e.intent.replace(/_/g, " ");
+    add("activity", `<time>${fmt(e.t)}</time><span class="tag intent">understood</span><span class="body">${esc(what)}</span>`);
+  },
+  tool(e) {
+    const label = TOOL_NAMES[e.name] || e.name;
+    const args = Object.entries(e.args || {}).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(", ");
+    const html = `<time>${fmt(e.t)}</time><span class="tag ${e.status === "running" ? "run" : e.status}">${e.status}</span>
+      <span class="body"><b>${esc(label)}</b> <code>${esc(args)}</code>${e.result ? `<span class="result">→ ${esc(e.result)}</span>` : ""}</span>`;
+    if (e.ref && toolRows[e.ref]) toolRows[e.ref].innerHTML = html;
+    else toolRows[e.id] = add("activity", html);
+  },
+  log(e) {
+    add("activity", `<time>${fmt(e.t)}</time><span class="tag ${e.level}">${e.level}</span><span class="body">${esc(e.text)}</span>`);
+  },
+  ask(e) { $("asking").textContent = "JARVIS is asking: " + e.question + " (answer by voice or type below)"; $("asking").classList.add("show"); $("input").focus(); },
+  ask_done() { $("asking").classList.remove("show"); },
+  confirm(e) {
+    const d = e.details || {};
+    const isMsg = !!d.message, isCall = !!d.call;
+    $("modalTitle").textContent = isMsg ? "Send this message?" : isCall ? "Start this call?" : "Confirm";
+    $("question").textContent = isMsg ? "Review the draft. It's already typed into the app and has not been sent."
+      : isCall ? "Nothing has been dialled yet. Check the right chat or number is shown." : e.question;
+    $("preview").innerHTML = Object.entries(d).map(([k, v]) => `<div><span>${esc(k)}</span><p>${esc(v)}</p></div>`).join("");
+    $("preview").classList.toggle("show", isMsg || isCall);
+    $("yesBtn").textContent = isMsg ? "Send" : isCall ? "Call" : "Yes";
+    $("noBtn").textContent = isMsg ? "Don't send" : isCall ? "Don't call" : "No";
+    $("modal").classList.add("show");
+  },
+  confirm_done() { $("modal").classList.remove("show"); },
+};
+
+function connect() {
+  const es = new EventSource("/events");
+  es.addEventListener("reset", () => {
+    for (const id of ["chat", "heard", "activity"]) $(id).innerHTML = "";
+    chatCount = 0;
+  });
+  es.onmessage = m => { const e = JSON.parse(m.data); handlers[e.kind]?.(e); };
+  es.onerror = () => { $("status").textContent = "disconnected - is jarvis.py running?"; $("logo").className = "logo paused"; };
+}
+
+async function post(url, data) {
+  await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+}
+function send(ev) {
+  ev.preventDefault();
+  const text = $("input").value.trim();
+  if (text) { post("/api/command", { text }); $("input").value = ""; }
+}
+function togglePause() { post("/api/control", { action: paused ? "resume" : "pause" }); }
+function talkNow() { post("/api/control", { action: "listen" }); }
+function answer(yes) { post("/api/confirm", { yes }); $("modal").classList.remove("show"); }
+
+/* ---------- robot: drag anywhere, head follows the cursor ---------- */
+(() => {
+  const robot = $("robot"), head = document.getElementById("head");
+  let pos = { x: 0, y: 0 };
+  try { pos = JSON.parse(localStorage.getItem("robotPos")) || pos; } catch {}
+  const apply = () => { robot.style.setProperty("--x", pos.x + "px"); robot.style.setProperty("--y", pos.y + "px"); };
+  apply();
+  let start = null;
+  robot.addEventListener("pointerdown", e => {
+    start = { px: e.clientX, py: e.clientY, x: pos.x, y: pos.y };
+    robot.setPointerCapture(e.pointerId);
+    robot.classList.add("dragging");
+  });
+  robot.addEventListener("pointermove", e => {
+    if (!start) return;
+    pos = { x: start.x + e.clientX - start.px, y: start.y + e.clientY - start.py };
+    apply();
+  });
+  const end = () => {
+    if (!start) return;
+    start = null;
+    robot.classList.remove("dragging");
+    try { localStorage.setItem("robotPos", JSON.stringify(pos)); } catch {}
+  };
+  robot.addEventListener("pointerup", end);
+  robot.addEventListener("pointercancel", end);
+  robot.addEventListener("dblclick", () => { pos = { x: 0, y: 0 }; apply(); try { localStorage.removeItem("robotPos"); } catch {} });
+  addEventListener("pointermove", e => {
+    const r = robot.getBoundingClientRect();
+    const dx = (e.clientX - (r.left + r.width / 2)) / innerWidth;
+    const dy = (e.clientY - (r.top + r.height * .2)) / innerHeight;
+    head.style.transform = `rotate(${Math.max(-12, Math.min(12, dx * 30))}deg) translate(${dx * 10}px, ${dy * 8}px)`;
+  });
+})();
+
+/* ---------- system stats ---------- */
+const cpuHist = [], netHist = [];
+function spark(id, hist, max) {
+  const pts = hist.map((v, i) => `${(i / 29) * 100},${22 - (v / (max || 1)) * 20 - 1}`).join(" ");
+  $(id).setAttribute("points", pts);
+}
+async function stats() {
+  try {
+    const s = await (await fetch("/api/stats")).json();
+    $("cpu").textContent = Math.round(s.cpu) + "%";
+    for (const k of ["ram", "disk"]) { $(k).textContent = Math.round(s[k]) + "%"; $(k + "Bar").style.width = s[k] + "%"; }
+    $("bat").textContent = s.battery == null ? "n/a" : s.battery + "%" + (s.charging ? " ⚡" : "");
+    $("batBar").style.width = (s.battery ?? 0) + "%";
+    $("down").textContent = "↓ " + s.down.toFixed(1) + " Mbps";
+    $("up").textContent = "↑ " + s.up.toFixed(1) + " Mbps";
+    cpuHist.push(s.cpu); netHist.push(s.down);
+    if (cpuHist.length > 30) { cpuHist.shift(); netHist.shift(); }
+    spark("cpuSpark", cpuHist, 100);
+    spark("netSpark", netHist, Math.max(1, ...netHist));
+  } catch {}
+}
+connect();
+stats();
+setInterval(stats, 2000);
+</script>
+</body>
+</html>
